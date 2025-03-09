@@ -2,6 +2,7 @@ import os
 import io
 import time
 import easyocr
+import numpy as np
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -9,6 +10,23 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from PIL import Image
 from typing import List, Optional
+
+# Custom JSON encoder to handle NumPy types
+class NumpyJSONEncoder:
+    @staticmethod
+    def convert_to_json_serializable(obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, list):
+            return [NumpyJSONEncoder.convert_to_json_serializable(item) for item in obj]
+        elif isinstance(obj, dict):
+            return {k: NumpyJSONEncoder.convert_to_json_serializable(v) for k, v in obj.items()}
+        else:
+            return obj
 
 app = FastAPI(
     title="Image to Text API",
@@ -106,7 +124,7 @@ async def extract_text(
         # Perform OCR
         results = reader.readtext(
             image=io.BytesIO(image_content).getvalue(),
-            detail=detail == 1
+            detail=True  # Always get detailed results and format based on detail parameter
         )
         
         # End time
@@ -114,7 +132,7 @@ async def extract_text(
         
         # Format results based on detail level
         if detail == 0:
-            text_results = [text for text in results]
+            text_results = [text for (_, text, _) in results]
             response_data = {
                 "text": " ".join(text_results),
                 "text_list": text_results,
@@ -124,16 +142,20 @@ async def extract_text(
         else:
             text_results = []
             for (bbox, text, prob) in results:
+                # Convert NumPy types to Python native types
                 text_results.append({
                     "text": text,
-                    "confidence": prob,
-                    "bounding_box": bbox
+                    "confidence": float(prob),
+                    "bounding_box": NumpyJSONEncoder.convert_to_json_serializable(bbox)
                 })
             response_data = {
                 "results": text_results,
                 "languages": language_list,
                 "processing_time": processing_time
             }
+        
+        # Convert all NumPy types to Python native types
+        response_data = NumpyJSONEncoder.convert_to_json_serializable(response_data)
         
         return JSONResponse(content=response_data)
     
