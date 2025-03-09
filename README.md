@@ -8,6 +8,7 @@ A RESTful API for extracting text from images using EasyOCR with support for mul
 - Support for multiple languages in a single request
 - Option to get detailed results including bounding boxes and confidence scores
 - Fast and efficient text recognition
+- Memory-optimized for cloud deployment
 
 ## API Endpoints
 
@@ -101,9 +102,53 @@ Extract text from an uploaded image.
 
 4. Open http://localhost:8000/docs in your browser to access the Swagger UI.
 
-## Deployment
+## Deployment Options
 
-This API is designed to be deployed on Render. Follow these steps:
+### Option 1: Google Cloud Run (Recommended)
+
+Google Cloud Run is ideal for this application due to its generous free tier and ability to handle resource-intensive tasks.
+
+1. Install the Google Cloud SDK:
+   - Download from: https://cloud.google.com/sdk/docs/install
+   - Initialize with: `gcloud init`
+
+2. Edit the `deploy_to_cloud_run.sh` script:
+   - Replace `your-project-id` with your actual Google Cloud project ID
+
+3. Make the script executable and run it:
+   ```bash
+   chmod +x deploy_to_cloud_run.sh
+   ./deploy_to_cloud_run.sh
+   ```
+
+4. The script will:
+   - Enable required APIs
+   - Build and push your Docker container
+   - Deploy to Cloud Run
+   - Output the service URL
+
+### Option 2: Railway.app
+
+Railway offers a simpler deployment process:
+
+1. Sign up at https://railway.app/
+
+2. Install the Railway CLI:
+   ```bash
+   npm i -g @railway/cli
+   ```
+
+3. Login and deploy:
+   ```bash
+   railway login
+   railway up
+   ```
+
+4. Alternatively, connect your GitHub repository in the Railway dashboard for automatic deployments.
+
+### Option 3: Render (Original Option)
+
+This API can also be deployed on Render:
 
 1. Push your code to GitHub
 2. Create a new Web Service on Render
@@ -111,6 +156,12 @@ This API is designed to be deployed on Render. Follow these steps:
 4. Use the following settings:
    - Build Command: `pip install -r requirements.txt`
    - Start Command: `gunicorn -k uvicorn.workers.UvicornWorker main:app`
+
+## Performance Considerations
+
+- The API now includes image resizing to handle large images efficiently
+- Memory management has been improved for cloud deployment
+- For best performance, consider using a paid tier with more memory (2GB+)
 
 ## License
 

@@ -3,6 +3,7 @@ import io
 import time
 import easyocr
 import numpy as np
+import gc
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -82,7 +83,7 @@ def get_reader(languages: List[str]):
     languages_key = "-".join(sorted(languages))
     
     if languages_key not in reader_instances:
-        # Create a new reader instance
+        print(f"Loading models for languages: {languages}")
         reader_instances[languages_key] = easyocr.Reader(
             languages,
             gpu=False,  # Set to True if GPU is available
@@ -109,11 +110,6 @@ async def extract_text(
     try:
         # Read the image
         image_content = await image.read()
-        img = Image.open(io.BytesIO(image_content))
-        
-        # Convert to RGB if image has alpha channel
-        if img.mode == 'RGBA':
-            img = img.convert('RGB')
         
         # Get the appropriate reader
         reader = get_reader(language_list)
@@ -121,9 +117,9 @@ async def extract_text(
         # Start time
         start_time = time.time()
         
-        # Perform OCR
+        # Perform OCR directly on the image bytes
         results = reader.readtext(
-            image=io.BytesIO(image_content).getvalue(),
+            image=image_content,
             detail=True  # Always get detailed results and format based on detail parameter
         )
         
@@ -157,9 +153,14 @@ async def extract_text(
         # Convert all NumPy types to Python native types
         response_data = NumpyJSONEncoder.convert_to_json_serializable(response_data)
         
+        # Force garbage collection to free memory
+        gc.collect()
+        
         return JSONResponse(content=response_data)
     
     except Exception as e:
+        # Force garbage collection on error too
+        gc.collect()
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
 
 if __name__ == "__main__":
